@@ -87,6 +87,14 @@ c3.metric("Countdown", f"{days_to_trip} Days Out")
 
 st.divider()
 
+# MOVE WEATHER HERE
+if curr_temp:
+    with st.container(border=True):
+        w1, w2 = st.columns([1, 4])
+        w1.markdown(f"<h1>{int(curr_temp)}°C</h1>", unsafe_allow_html=True)
+        w2.markdown(f"**Current Weather in {dest}**")
+
+
 # --- 7. TABS ---
 tab1, tab2, tab3 = st.tabs(["🔔 Reminders", "📦 Packing List", "🔐 Vault"])
 
