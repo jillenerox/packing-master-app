@@ -24,7 +24,7 @@ def get_weather(city):
     try:
         response = requests.get(url).json()
         temp = response['main']['temp']
-        condition = response['weather'][0']['main'] 
+        condition = response['weather']['0']['main'] 
         return temp, condition
     except:
         return None, None
