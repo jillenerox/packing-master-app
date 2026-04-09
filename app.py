@@ -20,12 +20,16 @@ sh = client.open("Packing_Master")
 def get_weather(city):
     try:
         api_key = st.secrets["weather_api_key"]
+        # Ensure this URL is on ONE single line
         url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+        
         response = requests.get(url).json()
         temp = response['main']['temp']
         condition = response['weather'][0']['main']
         return temp, condition
-    except:
+    except Exception as e:
+        # This will print the error to your Streamlit logs if it fails
+        print(f"Weather Error: {e}")
         return None, None
 
 # --- 3. DATA LOADING ---
