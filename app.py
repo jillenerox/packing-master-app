@@ -207,7 +207,7 @@ with tab2:
                                 padding: 20px 10px; 
                                 border-radius: 12px; 
                                 text-align: center;
-                                margin-bottom: -48px;
+                                margin-bottom: -4px;
                                 box-shadow: {shadow};
                                 opacity: {opacity};
                                 transition: all 0.3s ease;
@@ -215,7 +215,7 @@ with tab2:
                                 <p style="
                                     color: {text}; 
                                     font-weight: 600; 
-                                    margin: 0; 
+                                    margin: 10px; 
                                     font-size: 1.05em;
                                     letter-spacing: -0.2px;
                                 ">
