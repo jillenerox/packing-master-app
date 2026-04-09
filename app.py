@@ -153,7 +153,104 @@ with tab2:
         </style>
     """, unsafe_allow_html=True)
 
-    # ... (rest of your data loading code)
+    # 1. Fresh Data Fetch
+    all_data = load_data()
+    df_grid = all_data[1].copy()
+    df_grid.columns = df_grid.columns.str.strip()
+    
+    # 2. Get active trip type
+    active_trip_type = df_config.iloc[0].get('Trip_Type', 'Regular')
+    
+    # Header Styling
+    st.markdown(f"### ✈️ Packing for <span style='color:#FF4B4B'>{active_trip_type}</span>", unsafe_allow_html=True)
+    st.caption("Tap an item to mark it as packed. Your progress is saved automatically.")
+
+    # 3. Filter & Sort (Position Locking)
+    grid_list = df_grid[
+        (df_grid['Trip_Type'] == active_trip_type) | 
+        (df_grid['Trip_Type'] == "Regular")
+    ].sort_values(by=['Category', 'Item'])
+
+    if not grid_list.empty:
+        packing_sheet = sh.worksheet("Packing_List")
+        categories = grid_list['Category'].unique()
+
+        for cat in categories:
+            # Styled Category Header
+            st.markdown(f"""
+                <div style="margin-top: 25px; margin-bottom: 10px;">
+                    <span style="background-color: #f0f2f6; padding: 5px 15px; border-radius: 20px; 
+                                 font-size: 0.8em; font-weight: bold; color: #555; text-transform: uppercase; 
+                                 letter-spacing: 1px;">
+                        {cat}
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            cat_items = grid_list[grid_list['Category'] == cat]
+            
+            # 2-Column Grid
+            for i in range(0, len(cat_items), 2):
+                cols_ui = st.columns(2)
+                chunk = cat_items.iloc[i:i+2]
+                
+                for j, (idx, row) in enumerate(chunk.iterrows()):
+                    item_name = row['Item']
+                    is_packed = str(row['Packed']).upper() == "YES"
+                    
+                    # --- THE DESIGNER PALETTE ---
+                    if is_packed:
+                        bg = "#E8F5E9"       # Soft Mint Green
+                        text = "#2E7D32"     # Deep Forest Green
+                        border = "#A5D6A7"   # Muted Green Border
+                        shadow = "none"
+                        opacity = "0.7"
+                    else:
+                        bg = "#FFFFFF"       # Pure White
+                        text = "#D32F2F"     # Designer Red
+                        border = "#FFCDD2"   # Soft Red Border
+                        shadow = "0px 4px 10px rgba(0,0,0,0.05)"
+                        opacity = "1.0"
+                    
+                    with cols_ui[j]:
+                        # 4. THE CARD (Aesthetic Version)
+                        st.markdown(f"""
+                            <div style="
+                                background-color: {bg}; 
+                                border: 1.5px solid {border}; 
+                                padding: 20px 10px; 
+                                border-radius: 12px; 
+                                text-align: center;
+                                margin-bottom: -35px;
+                                box-shadow: {shadow};
+                                opacity: {opacity};
+                                transition: all 0.3s ease;
+                            ">
+                                <p style="
+                                    color: {text}; 
+                                    font-weight: 600; 
+                                    margin: 0; 
+                                    font-size: 1.05em;
+                                    letter-spacing: -0.2px;
+                                ">
+                                    {item_name}
+                                </p>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # 5. THE TOGGLE (Interaction)
+                        toggled = st.checkbox("Toggle", value=is_packed, key=f"dsgn_{idx}", label_visibility="hidden")
+                        
+                        if toggled != is_packed:
+                            with st.spinner(""):
+                                cell = packing_sheet.find(item_name)
+                                if cell:
+                                    new_status = "Yes" if toggled else "No"
+                                    packing_sheet.update_cell(cell.row, 4, new_status)
+                                    st.cache_data.clear()
+                                    st.rerun()
+    else:
+        st.info("No items found. Add some to your sheet to see the magic!")
 
 with tab3:
     st.info("Storage for passports and tickets.")
