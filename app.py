@@ -42,7 +42,7 @@ df_config, df_packing, df_reminders = load_data()
 
 # --- 4. TRIP CALCULATIONS ---
 trip_info = df_config.iloc[0]
-trip_name = trip_info['Trip Name']
+trip_name = trip_info['Trip_Name']
 dest = trip_info['Destination']
 start_dt = pd.to_datetime(trip_info['Start_Date'])
 end_dt = pd.to_datetime(trip_info['End_Date'])
