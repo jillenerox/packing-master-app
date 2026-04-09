@@ -141,47 +141,46 @@ with tab1:
 with tab2:
     st.subheader("📦 Smart Packing List")
 
-    # --- 1. TRIP TYPE FILTER ---
-    # This looks at your 'Trip_Type' column in the sheet and gives you unique options
-    all_types = df_packing['Trip_Type'].unique().tolist()
-    selected_type = st.selectbox("Select your packing style:", all_types)
-
-    # Filter the dataframe based on selection
-    filtered_df = df_packing[df_packing['Trip_Type'] == selected_type]
-
-    # --- 2. ADD NEW ITEM (Updated for Trip Type) ---
-    with st.expander("➕ Add Item to this Category"):
-        with st.form("add_item_form", clear_on_submit=True):
-            new_cat = st.selectbox("Category", ["Clothing", "Toiletries", "Electronics", "Documents"])
-            new_item_name = st.text_input("Item Name")
-            if st.form_submit_button("Add to List"):
-                if new_item_name:
-                    # Append: Category, Item, Packed, Trip_Type
-                    sh.worksheet("Packing_List").append_row([new_cat, new_item_name, "No", selected_type])
-                    st.cache_data.clear()
-                    st.rerun()
+    # --- 1. DYNAMIC TRIP TYPE SELECTOR ---
+    # We pull unique values from your Column D (Trip_Type)
+    if 'Trip_Type' in df_packing.columns:
+        # Clean up the list: Remove empty values and get unique types
+        all_types = df_packing['Trip_Type'].unique().tolist()
+        all_types = [t for t in all_types if str(t).strip() != ""]
+        
+        if all_types:
+            selected_type = st.selectbox("Current Trip Mode:", all_types)
+            
+            # Filter the list based on your selection
+            filtered_df = df_packing[df_packing['Trip_Type'] == selected_type]
+        else:
+            st.warning("No 'Trip_Type' found in your sheet yet. Add one in Column D!")
+            filtered_df = pd.DataFrame()
+    else:
+        st.error("Missing 'Trip_Type' column in your Google Sheet (Column D).")
+        filtered_df = pd.DataFrame()
 
     st.divider()
 
-    # --- 3. DISPLAY CATEGORIZED LIST ---
-    packing_sheet = sh.worksheet("Packing_List")
-    
-    # Get categories only from the filtered items
-    categories = filtered_df['Category'].unique()
+    # --- 2. DISPLAY CATEGORIZED ITEMS ---
+    if not filtered_df.empty:
+        packing_sheet = sh.worksheet("Packing_List")
+        
+        # Group items by Category (Column A)
+        categories = filtered_df['Category'].unique()
 
-    if len(filtered_df) == 0:
-        st.info(f"No items found for '{selected_type}'. Add some above!")
-    else:
         for cat in categories:
-            st.markdown(f"#### {cat}")
+            # Designer touch: A nice header for each category
+            st.markdown(f"### {cat}")
             cat_items = filtered_df[filtered_df['Category'] == cat]
             
             for idx, row in cat_items.iterrows():
-                # Important: Use the original index (row.name) to find the correct row in GSheets
-                gsheet_row = row.name + 2
+                # We use the original DataFrame index to map back to the GSheet row
+                gsheet_row = row.name + 2 
                 is_packed = str(row['Packed']).upper() == "YES"
                 
-                # Your Red/Red Styling
+                # Applying your Red/Red preference:
+                # 'Packed' is light red/strikethrough, 'Not Packed' is bold red.
                 if is_packed:
                     text_style = "color: #ffcccc; text-decoration: line-through;"
                     btn_label = "Unpack"
@@ -190,24 +189,38 @@ with tab2:
                     btn_label = "Pack"
 
                 with st.container(border=True):
-                    p1, p2, p3 = st.columns([3, 1, 1])
+                    c1, c2, c3 = st.columns([3, 1, 1])
                     
-                    with p1:
+                    with c1:
                         st.markdown(f"<span style='{text_style}'>{row['Item']}</span>", unsafe_allow_html=True)
                     
-                    with p2:
+                    with c2:
                         if st.button(btn_label, key=f"p_{idx}", use_container_width=True):
-                            new_status = "No" if is_packed else "Yes"
-                            packing_sheet.update_cell(gsheet_row, 3, new_status)
+                            new_val = "No" if is_packed else "Yes"
+                            packing_sheet.update_cell(gsheet_row, 3, new_val) # Updates Column C
                             st.cache_data.clear()
                             st.rerun()
-                    
-                    with p3:
+                            
+                    with c3:
                         if st.button("🗑️", key=f"d_{idx}", use_container_width=True):
                             packing_sheet.delete_rows(gsheet_row)
                             st.cache_data.clear()
                             st.rerun()
+    else:
+        st.info("Select a Trip Type to see your list, or add your first item in the 'Add' section below.")
 
+    # --- 3. ADD NEW ITEM (Bottom of list) ---
+    with st.expander("➕ Add Item to Sheet"):
+        with st.form("new_item_form", clear_on_submit=True):
+            f_cat = st.selectbox("Category", ["Clothing", "Toiletries", "Electronics", "Documents", "Others"])
+            f_item = st.text_input("Item Name")
+            f_type = st.text_input("Trip Type (e.g. Amsterdam Trip, General)")
+            
+            if st.form_submit_button("Save to Google Sheet"):
+                if f_item and f_type:
+                    sh.worksheet("Packing_List").append_row([f_cat, f_item, "No", f_type])
+                    st.cache_data.clear()
+                    st.rerun()
 
 with tab3:
     st.info("Storage for passports and tickets.")
