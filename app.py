@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import requests
+
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
@@ -14,6 +16,21 @@ def init_connection():
 
 client = init_connection()
 sh = client.open("Packing_Master") # Ensure this matches your Sheet name exactly
+
+# --- WEATHER MOOD AND TEMP ---
+def get_weather(city):
+    api_key = st.secrets["weather_api_key"]
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    try:
+        response = requests.get(url).json()
+        temp = response['main']['temp']
+        condition = response['weather'][0']['main'] 
+        return temp, condition
+    except:
+        return None, None
+
+# Call the function
+curr_temp, curr_cond = get_weather(dest)
 
 # --- 2. DATA LOADING ---
 def load_data():
@@ -74,17 +91,53 @@ q_cols[3].metric("Jackets", quantities["Outerwear"])
 tab1, tab2, tab3 = st.tabs(["🔔 Reminders", "📦 Packing List", "🔐 Vault"])
 
 with tab1:
-    st.write("### Trip Countdown")
-    # Logic for your colored reminders goes here (similar to the snippet we discussed)
+    st.write("### 🔔 Trip Countdown")
+    
+    # Sort reminders so the most urgent are on top
+    df_reminders = df_reminders.sort_values(by="Days_Before", ascending=False)
+
     for _, row in df_reminders.iterrows():
         deadline = start_dt - pd.Timedelta(days=row['Days_Before'])
-        st.checkbox(f"{row['Reminder']} (Due: {deadline.strftime('%d %b')})", value=(row['Done'] == "Yes"))
+        days_to_deadline = (deadline - datetime.now()).days
+        is_done = str(row['Done']).upper() == "YES"
+        
+        # Color Logic
+        if is_done:
+            color, icon = "#28a745", "✅" # Green
+        elif days_to_deadline < 0:
+            color, icon = "#FF4B4B", "🚨" # Red (Overdue)
+        elif days_to_deadline <= 2:
+            color, icon = "#FFA500", "⚠️" # Orange (Urgent)
+        else:
+            color, icon = "#555555", "📅" # Grey (Future)
+
+        # Render Styled Card
+        st.markdown(f"""
+            <div style='border-left: 6px solid {color}; padding: 12px; background: #f9f9f9; 
+                        border-radius: 6px; margin-bottom: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);'>
+                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                    <span style='font-weight: bold; color: #333;'>{icon} {row['Reminder']}</span>
+                    <span style='font-size: 0.85em; color: {color}; font-weight: bold;'>
+                        {deadline.strftime('%d %b')} ({days_to_deadline}d)
+                    </span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
 with tab2:
-    st.write("### Categorized Checklist")
-    # Filter packing list by Trip Type
-    # For now, showing a simple dataframe
-    st.data_editor(df_packing, hide_index=True, use_container_width=True)
+    # Weather Alert
+    if curr_temp:
+        st.write(f"### 🌡️ Current Weather in {dest}: {curr_temp}°C ({curr_cond})")
+        if "Rain" in curr_cond:
+            st.warning("☔ It's currently raining there! Make sure your umbrella is in the 'Essentials' section.")
+        if curr_temp < 15:
+            st.info("❄️ It's a bit chilly! I've highlighted your 'Cold' gear below.")
+
+    st.write("### 📦 Categorized Checklist")
+    
+    # Smart Filtering: Show items matching the weather/trip type
+    # (You can expand this logic based on your Packing_List 'Trip_Type' column)
+    st.data_editor(df_packing, hide_index=True, use_container_width=True, key="packing_editor")
 
 with tab3:
     st.link_button("📂 Open Digital Vault (Google Drive)", "https://drive.google.com", use_container_width=True)
