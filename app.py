@@ -70,6 +70,10 @@ c3.metric("Countdown", f"{days_to_trip} Days")
 st.divider()
 
 # --- 6. WEATHER SECTION ---
+# Temporary debug line - delete this once it's working!
+st.write(f"Debug: Weather Key Found? {'weather_api_key' in st.secrets}")
+st.write(f"Debug: Reminders Found? {len(df_reminders)} rows loaded")
+
 if weather_now:
     st.subheader(f"🌦️ Weather Report: {dest}")
     w_col1, w_col2 = st.columns([1, 2])
