@@ -69,26 +69,35 @@ c3.metric("Countdown", f"{days_to_trip} Days")
 
 st.divider()
 
-# --- 6. WEATHER SECTION (NEW) ---
+# --- 6. WEATHER SECTION ---
 if weather_now:
     st.subheader(f"🌦️ Weather Report: {dest}")
     w_col1, w_col2 = st.columns([1, 2])
     
     with w_col1:
-        temp = weather_now['main']['temp']
-        desc = weather_now['weather'][0']['description'].title()
-        st.write(f"**Right Now:**")
-        st.markdown(f"### {int(temp)}°C | {desc}")
+        # Simplified extraction to avoid string literal errors
+        main_data = weather_now.get('main', {})
+        temp = main_data.get('temp', 0)
+        
+        weather_list = weather_now.get('weather', [{}])
+        desc = weather_list[0].get('description', 'No description')
+        
+        st.write("**Right Now:**")
+        st.markdown(f"### {int(temp)}°C | {desc.capitalize()}")
     
     with w_col2:
         st.write("**Trip Forecast (Next 5 Days):**")
-        # Extract 5-day forecast at noon
-        f_list = [f for f in weather_forecast['list'] if "12:00:00" in f['dt_txt']]
-        cols = st.columns(len(f_list))
-        for i, day in enumerate(f_list):
-            d_date = datetime.strptime(day['dt_txt'], "%Y-%m-%d %H:%M:%S").strftime("%a")
-            d_temp = int(day['main']['temp'])
-            cols[i].write(f"{d_date}\n\n**{d_temp}°**")
+        forecast_items = weather_forecast.get('list', [])
+        # Get one forecast per day (filtering for noon)
+        f_days = [f for f in forecast_items if "12:00:00" in f.get('dt_txt', '')]
+        
+        if f_days:
+            cols = st.columns(len(f_days))
+            for i, day in enumerate(f_days):
+                dt_str = day.get('dt_txt', '')
+                d_date = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S").strftime("%a")
+                d_temp = int(day.get('main', {}).get('temp', 0))
+                cols[i].write(f"{d_date}\n\n**{d_temp}°**")
 
 st.divider()
 
