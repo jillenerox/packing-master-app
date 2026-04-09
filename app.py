@@ -144,7 +144,8 @@ with tab2:
         <style>
             /* Move the checkbox container 10px to the right */
             .stCheckbox {
-                margin-left: 10px;
+                margin-left: 20px;
+                margin-top: 20px;
             }
             /* Add more vertical breathing room between rows of cards */
             [data-testid="stVerticalBlock"] > div {
