@@ -19,14 +19,16 @@ sh = client.open("Packing_Master") # Ensure this matches your Sheet name exactly
 
 # --- WEATHER MOOD AND TEMP ---
 def get_weather(city):
-    api_key = st.secrets["weather_api_key"]
-    # Ensure there is an 'f' before the quotes and no line breaks inside the quotes
-    url = f"https://api.googleapis.com/weather/v1/current?q={city}&key={api_key}"
+    # Check this line for missing quotes
+    api_key = st.secrets["weather_api_key"] 
+    
+    # Check this line: Ensure it starts with f" and ends with "
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
     
     try:
         response = requests.get(url).json()
         temp = response['main']['temp']
-        condition = response['weather'][0']['main'] 
+        condition = response['weather'][0']['main'] # This is line 29
         return temp, condition
     except:
         return None, None
