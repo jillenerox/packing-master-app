@@ -139,7 +139,63 @@ with tab1:
                     st.rerun()
 
 with tab2:
-    st.data_editor(df_packing, hide_index=True, use_container_width=True)
+    st.subheader("📦 Trip Packing List")
+    
+    # 1. ADD NEW ITEM SECTION
+    with st.expander("➕ Add New Item to List"):
+        with st.form("add_item_form", clear_on_submit=True):
+            new_cat = st.selectbox("Category", ["Clothing", "Toiletries", "Electronics", "Documents", "Others"])
+            new_item = st.text_input("Item Name")
+            if st.form_submit_state and st.form_submit_button("Add to Sheet"):
+                if new_item:
+                    # Append to GSheets (Assuming columns: Category, Item, Packed)
+                    sh.worksheet("Packing_List").append_row([new_cat, new_item, "No"])
+                    st.cache_data.clear()
+                    st.rerun()
+
+    # 2. DISPLAY BY CATEGORY
+    packing_sheet = sh.worksheet("Packing_List")
+    
+    # Group items by Category from your GSheet
+    categories = df_packing['Category'].unique()
+    
+    for cat in categories:
+        st.markdown(f"#### {cat}")
+        cat_items = df_packing[df_packing['Category'] == cat]
+        
+        for idx, row in cat_items.iterrows():
+            # Index for GSheets (Row 1 is header)
+            gsheet_row = row.name + 2
+            is_packed = str(row['Packed']).upper() == "YES"
+            
+            # Styling based on your Red/Red request
+            if is_packed:
+                # Muted Red / Strikethrough for Packed
+                text_style = "color: #ffcccc; text-decoration: line-through;"
+                btn_label = "Unpack"
+            else:
+                # Bright Red for Not Packed
+                text_style = "color: #FF4B4B; font-weight: bold;"
+                btn_label = "Pack"
+
+            with st.container(border=True):
+                p_col1, p_col2, p_col3 = st.columns([3, 1, 1])
+                
+                with p_col1:
+                    st.markdown(f"<span style='{text_style}'>{row['Item']}</span>", unsafe_allow_html=True)
+                
+                with p_col2:
+                    if st.button(btn_label, key=f"pack_{idx}", use_container_width=True):
+                        new_status = "No" if is_packed else "Yes"
+                        packing_sheet.update_cell(gsheet_row, 3, new_status)
+                        st.cache_data.clear()
+                        st.rerun()
+                
+                with p_col3:
+                    if st.button("🗑️", key=f"del_{idx}", use_container_width=True):
+                        packing_sheet.delete_rows(gsheet_row)
+                        st.cache_data.clear()
+                        st.rerun()
 
 with tab3:
     st.info("Storage for passports and tickets.")
