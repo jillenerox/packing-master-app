@@ -139,12 +139,16 @@ with tab1:
                     st.rerun()
 
 with tab2:
-    # 1. Clean up column names for safety
-    df_packing.columns = df_packing.columns.str.strip()
-    cols = {col.lower(): col for col in df_packing.columns}
+    # 1. FORCE REFRESH: We load a fresh copy to ensure no other filters are active
+    # This prevents items from disappearing when their status changes
+    df_grid = load_data()[1] # Re-grabs the second item (packing list) from your load_data function
+    
+    # Standardize column names
+    df_grid.columns = df_grid.columns.str.strip()
+    cols = {col.lower(): col for col in df_grid.columns}
     col_item, col_type, col_cat, col_packed = cols.get('item', 'Item'), cols.get('trip_type', 'Trip_Type'), cols.get('category', 'Category'), cols.get('packed', 'Packed')
 
-    # 2. Get active trip type from Config
+    # 2. Get active trip type
     try:
         active_trip_type = df_config.iloc[0]['Trip_Type']
     except:
@@ -152,39 +156,38 @@ with tab2:
     
     st.subheader(f"📦 Packing for: {active_trip_type}")
 
-    # 3. STATIC FILTERING: Get all items that should be on screen
-    # We sort by Category and Item Name so they NEVER move positions
-    full_list = df_packing[
-        (df_packing[col_type] == active_trip_type) | 
-        (df_packing[col_type] == "Regular")
+    # 3. STATIC FILTER: Specific Trip + Regular Essentials
+    # We SORT by Item name so they stay in the exact same spot on the screen
+    grid_list = df_grid[
+        (df_grid[col_type] == active_trip_type) | 
+        (df_grid[col_type] == "Regular")
     ].sort_values(by=[col_cat, col_item])
 
-    if not full_list.empty:
+    if not grid_list.empty:
         packing_sheet = sh.worksheet("Packing_List")
-        categories = full_list[col_cat].unique()
+        categories = grid_list[col_cat].unique()
 
         for cat in categories:
             st.markdown(f"#### {cat}")
-            cat_items = full_list[full_list[col_cat] == cat]
+            cat_items = grid_list[grid_list[col_cat] == cat]
             
-            # Create the 2-column grid
+            # Display items in a 2-column grid
             for i in range(0, len(cat_items), 2):
                 cols_ui = st.columns(2)
                 chunk = cat_items.iloc[i:i+2]
                 
                 for j, (idx, row) in enumerate(chunk.iterrows()):
-                    # Map back to GSheet row index (row.name is the original index)
+                    # Use row.name to get the original row index from the Google Sheet
                     gsheet_row = row.name + 2 
                     is_packed = str(row[col_packed]).upper() == "YES"
                     
-                    # --- DESIGNER COLORS ---
-                    # These stay constant in their grid spots
-                    bg_color = "#D1FFD7" if is_packed else "#FFFFFF"  # Light Green vs White
-                    text_color = "#0E5A1F" if is_packed else "#D0021B" # Dark Green vs Red
+                    # Colors: Green if packed, White if not
+                    bg_color = "#D1FFD7" if is_packed else "#FFFFFF" 
+                    text_color = "#0E5A1F" if is_packed else "#D0021B"
                     border_color = "#28A745" if is_packed else "#D0021B"
                     
                     with cols_ui[j]:
-                        # 4. THE VISUAL CARD
+                        # The Card Visual
                         st.markdown(f"""
                             <div style="
                                 background-color:{bg_color}; 
@@ -200,9 +203,9 @@ with tab2:
                             </div>
                         """, unsafe_allow_html=True)
                         
-                        # 5. THE TOGGLE (Invisible trigger)
-                        # The key ensures Streamlit tracks this specific item's state
-                        if st.checkbox("Toggle", value=is_packed, key=f"pack_check_{idx}", label_visibility="hidden"):
+                        # The Trigger
+                        # The key includes the packed status to prevent state collisions
+                        if st.checkbox("Toggle", value=is_packed, key=f"grid_p_{idx}_{is_packed}", label_visibility="hidden"):
                             if not is_packed:
                                 packing_sheet.update_cell(gsheet_row, 3, "Yes")
                                 st.cache_data.clear()
@@ -213,7 +216,7 @@ with tab2:
                                 st.cache_data.clear()
                                 st.rerun()
     else:
-        st.info(f"No items found for '{active_trip_type}'. Add them to your sheet!")
+        st.warning("No items found. Check your Trip_Type in Google Sheets!")
 
 
 with tab3:
