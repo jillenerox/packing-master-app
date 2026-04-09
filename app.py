@@ -139,40 +139,21 @@ with tab1:
                     st.rerun()
 
 with tab2:
-    # 1. Clean up column names to avoid "KeyErrors" (removes spaces and makes lowercase)
+    # 1. Standardize column names
     df_packing.columns = df_packing.columns.str.strip()
-    # We create a mapping to find the right column even if the casing is off
     cols = {col.lower(): col for col in df_packing.columns}
-    
-    # Identify our key columns safely
-    col_item = cols.get('item', 'Item')
-    col_type = cols.get('trip_type', 'Trip_Type')
-    col_cat = cols.get('category', 'Category')
-    col_packed = cols.get('packed', 'Packed')
+    col_item, col_type, col_cat, col_packed = cols.get('item', 'Item'), cols.get('trip_type', 'Trip_Type'), cols.get('category', 'Category'), cols.get('packed', 'Packed')
 
-    # 2. Get the Current Trip Type from Config
+    # 2. Get active trip type
     try:
         active_trip_type = df_config.iloc[0]['Trip_Type']
     except:
         active_trip_type = "Regular"
     
-    st.subheader(f"📦 Packing for: {active_trip_type}")
+    # 3. Filter: Specific Trip + Regular Essentials
+    filtered_df = df_packing[(df_packing[col_type] == active_trip_type) | (df_packing[col_type] == "Regular")]
 
-    # 3. THE FILTERING LOGIC (Regular + Current Trip Type)
-    if active_trip_type == "Regular":
-        filtered_df = df_packing[df_packing[col_type] == "Regular"]
-        st.info("Showing your **Regular** essentials.")
-    else:
-        # Show items matching the trip OR regular items
-        filtered_df = df_packing[
-            (df_packing[col_type] == active_trip_type) | 
-            (df_packing[col_type] == "Regular")
-        ]
-        st.info(f"Showing **Regular** essentials + **{active_trip_type}** items.")
-
-    st.divider()
-
-    # 4. DISPLAY CATEGORIZED ITEMS
+    # 4. Display logic
     if not filtered_df.empty:
         packing_sheet = sh.worksheet("Packing_List")
         categories = filtered_df[col_cat].unique()
@@ -181,38 +162,46 @@ with tab2:
             st.markdown(f"#### {cat}")
             cat_items = filtered_df[filtered_df[col_cat] == cat]
             
-            for idx, row in cat_items.iterrows():
-                # Map back to the original GSheet row index
-                gsheet_row = row.name + 2 
-                is_packed = str(row[col_packed]).upper() == "YES"
-                
-                # Applying your Red/Red styling
-                # (Packed = light red/strikethrough, Not Packed = bold red)
-                if is_packed:
-                    text_style = "color: #ffcccc; text-decoration: line-through;"
-                    btn_label = "Unpack"
-                else:
-                    text_style = "color: #FF4B4B; font-weight: bold;"
-                    btn_label = "Pack"
+            # Use columns to create two rows (2 items per row)
+            # We iterate through the items in chunks of 2
+            rows = [cat_items.iloc[i:i+2] for i in range(0, len(cat_items), 2)]
+            
+            for chunk in rows:
+                cols_ui = st.columns(2) # Create two columns for the "Two Row" look
+                for i, (idx, row) in enumerate(chunk.iterrows()):
+                    gsheet_row = row.name + 2 
+                    is_packed = str(row[col_packed]).upper() == "YES"
+                    
+                    # Style logic: Green background if packed, Red border if not
+                    bg_color = "#d4edda" if is_packed else "#ffffff"
+                    text_color = "#155724" if is_packed else "#FF4B4B"
+                    border_color = "#c3e6cb" if is_packed else "#FF4B4B"
+                    text_decor = "line-through" if is_packed else "none"
 
-                with st.container(border=True):
-                    c1, c2 = st.columns([4, 1.2])
-                    
-                    with c1:
-                        # Safely get the item name
-                        val_item = row[col_item]
-                        st.markdown(f"<span style='{text_style}'>{val_item}</span>", unsafe_allow_html=True)
-                    
-                    with c2:
-                        if st.button(btn_label, key=f"pack_btn_{idx}", use_container_width=True):
-                            new_status = "No" if is_packed else "Yes"
-                            # Update Column 3 (Packed)
-                            packing_sheet.update_cell(gsheet_row, 3, new_status)
-                            st.cache_data.clear()
-                            st.rerun()
+                    with cols_ui[i]:
+                        # Create a clickable-looking box using markdown and a checkbox
+                        st.markdown(f"""
+                            <div style="background-color:{bg_color}; border: 1px solid {border_color}; 
+                                        padding: 10px; border-radius: 8px; margin-bottom: -40px;">
+                                <p style="color:{text_color}; text-decoration:{text_decor}; font-weight:bold; margin:0;">
+                                    {row[col_item]}
+                                </p>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # The checkbox acts as the "invisible" trigger
+                        if st.checkbox("Packed", value=is_packed, key=f"p_check_{idx}", label_visibility="hidden"):
+                            if not is_packed: # If it was 'No' and user clicked
+                                packing_sheet.update_cell(gsheet_row, 3, "Yes")
+                                st.cache_data.clear()
+                                st.rerun()
+                        else:
+                            if is_packed: # If it was 'Yes' and user unclicked
+                                packing_sheet.update_cell(gsheet_row, 3, "No")
+                                st.cache_data.clear()
+                                st.rerun()
     else:
-        st.warning(f"No items found for '{active_trip_type}' or 'Regular'.")
-        st.write("Current columns in your sheet:", list(df_packing.columns))
+        st.warning(f"No items found for {active_trip_type}.")
 
 with tab3:
     st.info("Storage for passports and tickets.")
