@@ -91,39 +91,52 @@ tab1, tab2, tab3 = st.tabs(["🔔 Reminders", "📦 Packing List", "🔐 Vault"]
 with tab1:
     st.subheader("Trip Checklist")
     
-    # We use a form-like display for reminders
+    # --- SORTING LOGIC ---
+    # 1. We create a temporary sorting column so 'No' (Pending) comes before 'Yes' (Done)
+    df_reminders['sort_status'] = df_reminders['Done'].apply(lambda x: 0 if str(x).upper() == "NO" else 1)
+    
+    # 2. Sort by 'sort_status' (Pending first) then 'Days_Before' (Descending)
+    df_reminders = df_reminders.sort_values(
+        by=['sort_status', 'Days_Before'], 
+        ascending=[True, False]
+    )
+    
     reminder_sheet = sh.worksheet("Reminders")
     
     for idx, row in df_reminders.iterrows():
+        # Re-calculate the actual row index in GSheets for the update_cell function
+        # (This uses the original index from the dataframe + 2)
+        original_gsheet_row = row.name + 2
+        
         deadline = start_dt - pd.Timedelta(days=int(row['Days_Before']))
         is_done = str(row['Done']).upper() == "YES"
-        overdue = datetime.now() > deadline and not is_done
         
         # Color and Icon Logic
         if is_done:
             color = "#28a745" # Green
-            label = "Done"
             icon = "✅"
+            status_text = "Completed"
         else:
             color = "#FF4B4B" # Red
-            label = "Pending"
+            status_text = "Pending"
+            # Show warning if today is past the 'Days_Before' threshold
             icon = "⚠️" if datetime.now() > deadline else "📅"
 
-        # Create a container for each reminder
         with st.container(border=True):
-            col_text, col_btn = st.columns([4, 1])
+            col_text, col_btn = st.columns([4, 1.2])
             
             with col_text:
                 st.markdown(f"<span style='color:{color}; font-weight:bold;'>{icon} {row['Reminder']}</span>", unsafe_allow_html=True)
-                st.caption(f"Due: {deadline.strftime('%d %b')} ({row['Days_Before']} days before trip)")
+                st.caption(f"Target: {deadline.strftime('%d %b')} ({row['Days_Before']} days before trip)")
             
             with col_btn:
-                # Toggle Button
-                new_status = "No" if is_done else "Yes"
-                if st.button(f"Mark as {new_status}", key=f"rem_{idx}"):
-                    # Update Google Sheet directly (Row is idx+2 because GSheets is 1-indexed + header)
-                    reminder_sheet.update_cell(idx + 2, 3, new_status)
-                    st.cache_data.clear() # Clear cache to refresh the UI
+                # Toggle Button Logic
+                label = "Undo" if is_done else "Mark Done"
+                if st.button(label, key=f"rem_btn_{idx}", use_container_width=True):
+                    new_val = "No" if is_done else "Yes"
+                    # Update Column 3 (the 'Done' column)
+                    reminder_sheet.update_cell(original_gsheet_row, 3, new_val)
+                    st.cache_data.clear()
                     st.rerun()
 
 with tab2:
