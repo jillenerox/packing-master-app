@@ -37,7 +37,9 @@ def get_weather(city):
     except:
         return None, None
 
-# --- 3. DATA LOADING ---
+# --- 3. DATA LOADING (With Caching) ---
+# This tells the app to only talk to Google once every 10 minutes
+@st.cache_data(ttl=600) 
 def load_data():
     config = pd.DataFrame(sh.worksheet("Trip_Config").get_all_records())
     packing = pd.DataFrame(sh.worksheet("Packing_List").get_all_records())
@@ -45,6 +47,7 @@ def load_data():
     return config, packing, reminders
 
 df_config, df_packing, df_reminders = load_data()
+
 
 # --- 4. TRIP CALCULATIONS ---
 trip_info = df_config.iloc[0]
