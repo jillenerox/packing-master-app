@@ -19,20 +19,21 @@ sh = client.open("Packing_Master")
 # --- 2. WEATHER API FUNCTION ---
 def get_weather(city):
     try:
-        api_key = st.secrets["weather_api_key"]
-        base_url = "https://api.openweathermap.org/data/2.5/weather"
+        # We fetch the key and city first
+        key = st.secrets["weather_api_key"]
         
-        # We pass parameters as a dictionary to avoid long string errors
-        params = {
-            "q": city,
-            "appid": api_key,
-            "units": "metric"
-        }
+        # We use a very simple URL structure
+        url = "https://api.openweathermap.org/data/2.5/weather"
+        payload = {"q": city, "appid": key, "units": "metric"}
         
-        response = requests.get(base_url, params=params).json()
-        temp = response['main']['temp']
-        condition = response['weather'][0']['main']
-        return temp, condition
+        # We get the data
+        res = requests.get(url, params=payload)
+        data = res.json()
+        
+        # We extract the values
+        t = data["main"]["temp"]
+        c = data["weather"][0]["main"]
+        return t, c
     except:
         return None, None
 
