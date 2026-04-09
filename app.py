@@ -221,7 +221,7 @@ with tab2:
                                 padding: 20px 10px; 
                                 border-radius: 12px; 
                                 text-align: center;
-                                margin-bottom: -20px;
+                                margin-bottom: -35px;
                                 box-shadow: {shadow};
                                 opacity: {opacity};
                                 transition: all 0.3s ease;
