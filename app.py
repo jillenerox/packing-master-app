@@ -139,23 +139,19 @@ with tab1:
                     st.rerun()
 
 with tab2:
-    # 1. Force a fresh data pull to avoid ghost filters
+    # 1. Fresh Data Fetch
     all_data = load_data()
     df_grid = all_data[1].copy()
-    
-    # Standardize column names
     df_grid.columns = df_grid.columns.str.strip()
     
-    # 2. Get active trip type from Config
-    try:
-        active_trip_type = df_config.iloc[0]['Trip_Type']
-    except:
-        active_trip_type = "Regular"
+    # 2. Get active trip type
+    active_trip_type = df_config.iloc[0].get('Trip_Type', 'Regular')
     
-    st.subheader(f"📦 Packing for: {active_trip_type}")
+    # Header Styling
+    st.markdown(f"### ✈️ Packing for <span style='color:#FF4B4B'>{active_trip_type}</span>", unsafe_allow_html=True)
+    st.caption("Tap an item to mark it as packed. Your progress is saved automatically.")
 
-    # 3. STATIC FILTER: Regular + Specific Trip (Sorted so they stay put)
-    # Note: Column names must match your sheet exactly (Case Sensitive)
+    # 3. Filter & Sort (Position Locking)
     grid_list = df_grid[
         (df_grid['Trip_Type'] == active_trip_type) | 
         (df_grid['Trip_Type'] == "Regular")
@@ -166,10 +162,20 @@ with tab2:
         categories = grid_list['Category'].unique()
 
         for cat in categories:
-            st.markdown(f"#### {cat}")
+            # Styled Category Header
+            st.markdown(f"""
+                <div style="margin-top: 25px; margin-bottom: 10px;">
+                    <span style="background-color: #f0f2f6; padding: 5px 15px; border-radius: 20px; 
+                                 font-size: 0.8em; font-weight: bold; color: #555; text-transform: uppercase; 
+                                 letter-spacing: 1px;">
+                        {cat}
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+            
             cat_items = grid_list[grid_list['Category'] == cat]
             
-            # Display in 2-column grid
+            # 2-Column Grid
             for i in range(0, len(cat_items), 2):
                 cols_ui = st.columns(2)
                 chunk = cat_items.iloc[i:i+2]
@@ -178,43 +184,59 @@ with tab2:
                     item_name = row['Item']
                     is_packed = str(row['Packed']).upper() == "YES"
                     
-                    # Style: Green if packed, White if not
-                    bg_color = "#D1FFD7" if is_packed else "#FFFFFF" 
-                    text_color = "#0E5A1F" if is_packed else "#D0021B"
-                    border_color = "#28A745" if is_packed else "#D0021B"
+                    # --- THE DESIGNER PALETTE ---
+                    if is_packed:
+                        bg = "#E8F5E9"       # Soft Mint Green
+                        text = "#2E7D32"     # Deep Forest Green
+                        border = "#A5D6A7"   # Muted Green Border
+                        shadow = "none"
+                        opacity = "0.7"
+                    else:
+                        bg = "#FFFFFF"       # Pure White
+                        text = "#D32F2F"     # Designer Red
+                        border = "#FFCDD2"   # Soft Red Border
+                        shadow = "0px 4px 10px rgba(0,0,0,0.05)"
+                        opacity = "1.0"
                     
                     with cols_ui[j]:
-                        # The Card Visual
+                        # 4. THE CARD (Aesthetic Version)
                         st.markdown(f"""
                             <div style="
-                                background-color:{bg_color}; 
-                                border: 2px solid {border_color}; 
-                                padding: 15px; 
-                                border-radius: 10px; 
+                                background-color: {bg}; 
+                                border: 1.5px solid {border}; 
+                                padding: 20px 10px; 
+                                border-radius: 12px; 
                                 text-align: center;
-                                margin-bottom: -45px;
+                                margin-bottom: -48px;
+                                box-shadow: {shadow};
+                                opacity: {opacity};
+                                transition: all 0.3s ease;
                             ">
-                                <p style="color:{text_color}; font-weight:bold; margin:0; font-size:1.1em;">
+                                <p style="
+                                    color: {text}; 
+                                    font-weight: 600; 
+                                    margin: 0; 
+                                    font-size: 1.05em;
+                                    letter-spacing: -0.2px;
+                                ">
                                     {item_name}
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
                         
-                        # The Toggle
-                        toggled = st.checkbox("Toggle", value=is_packed, key=f"grid_{idx}", label_visibility="hidden")
+                        # 5. THE TOGGLE (Interaction)
+                        toggled = st.checkbox("Toggle", value=is_packed, key=f"dsgn_{idx}", label_visibility="hidden")
                         
                         if toggled != is_packed:
-                            # Find the item in the sheet to get the exact row
-                            cell = packing_sheet.find(item_name)
-                            if cell:
-                                new_status = "Yes" if toggled else "No"
-                                # CRITICAL: Update Column 4 (Packed)
-                                packing_sheet.update_cell(cell.row, 4, new_status)
-                                st.cache_data.clear()
-                                st.rerun()
+                            with st.spinner(""):
+                                cell = packing_sheet.find(item_name)
+                                if cell:
+                                    new_status = "Yes" if toggled else "No"
+                                    packing_sheet.update_cell(cell.row, 4, new_status)
+                                    st.cache_data.clear()
+                                    st.rerun()
     else:
-        st.warning(f"No items found for {active_trip_type} or Regular.")
-
+        st.info("No items found. Add some to your sheet to see the magic!")
 
 
 with tab3:
